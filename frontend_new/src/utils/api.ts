@@ -2,7 +2,7 @@
  * API client for Epicure backend - Menu-item focused version
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
 
 // Types matching the backend MenuItem model
 export interface MenuItem {
@@ -177,6 +177,15 @@ class EpicureAPIClient {
     });
   }
 
+  // Conversational AI Search
+  async conversationalSearch(request: ConversationalSearchRequest): Promise<ConversationalSearchResponse> {
+    console.log('💬 API: Conversational Search:', request);
+    return this.request<ConversationalSearchResponse>('/ai/search', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
   async refineMenuSearch(refinementData: any): Promise<any> {
     return this.request('/ai/refine-search', {
       method: 'POST',
@@ -286,6 +295,16 @@ class EpicureAPIClient {
         'Authorization': `Bearer ${authToken}`
       },
       body: JSON.stringify({ preferences }),
+    });
+  }
+
+  async updatePersonalizationData(userId: string, personalizationData: any, authToken: string): Promise<any> {
+    return this.request(`/users/${userId}/personalization`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authToken}`
+      },
+      body: JSON.stringify(personalizationData),
     });
   }
 

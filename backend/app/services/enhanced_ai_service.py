@@ -22,7 +22,7 @@ class EnhancedAIService:
         
         if not self.use_mock:
             self.client = AsyncGroq(api_key=settings.GROQ_API_KEY)
-            self.primary_model = "llama-3.1-70b-versatile"
+            self.primary_model = "llama-3.1-8b-instant"
             self.fallback_model = "llama-3.1-8b-instant"
             logger.info("Enhanced AI Service initialized with Groq")
         else:

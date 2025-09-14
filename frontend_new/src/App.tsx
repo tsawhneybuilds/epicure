@@ -14,6 +14,7 @@ import { Button } from './components/ui/button';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner@2.0.3';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { EpicureAPI } from './utils/api';
 
 type Screen = 'landing' | 'login' | 'email-signup' | 'onboarding' | 'sync-success' | 'notifications' | 'home' | 'liked' | 'profile';
 
@@ -65,9 +66,11 @@ function AppContent() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('landing');
   const [userProfile, setUserProfile] = useState<UserProfileType | null>(null);
   const [userPreferences, setUserPreferences] = useState<any>({});
+  const [learnedInsights, setLearnedInsights] = useState<any[]>([]);
   const [likedMenuItems, setLikedMenuItems] = useState<MenuItem[]>([]);
   const [isReturningUser, setIsReturningUser] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [fromEmailSignup, setFromEmailSignup] = useState(false);
   
   // Chat state - persistent across navigation
   const [chatHistory, setChatHistory] = useState<Message[]>([]);
@@ -75,6 +78,62 @@ function AppContent() {
   const [initialPrompt, setInitialPrompt] = useState('');
   
   const { user, authToken, isAuthenticated, isLoading } = useAuth();
+
+  // Load user profile and personalization data when authenticated
+  useEffect(() => {
+    const loadUserData = async () => {
+      if (user?.id && authToken) {
+        try {
+          const profileResponse = await EpicureAPI.getUserProfile(user.id, authToken);
+          
+          if (profileResponse.profile) {
+            setUserProfile(profileResponse.profile);
+          }
+          
+          if (profileResponse.preferences) {
+            setUserPreferences(profileResponse.preferences);
+          }
+          
+          // Extract learned insights from personalization data
+          if (profileResponse.preferences?.personalization_data?.learned_insights) {
+            const insights = profileResponse.preferences.personalization_data.learned_insights;
+            const insightStrings = [];
+            
+            // Convert structured insights to display strings
+            if (insights.food_preferences?.track_macros) {
+              insightStrings.push("I carefully track my nutrition and macros");
+            }
+            if (insights.food_preferences?.calorie_deficit) {
+              insightStrings.push("I'm focused on maintaining a calorie deficit for weight management");
+            }
+            if (insights.food_preferences?.muscle_gain) {
+              insightStrings.push("I'm focused on building muscle and strength");
+            }
+            if (insights.dining_habits?.budget_conscious) {
+              insightStrings.push("I prefer budget-friendly dining options");
+            }
+            if (insights.dining_habits?.quick_meals) {
+              insightStrings.push("I value quick service when dining out");
+            }
+            if (insights.food_preferences?.vegetarian) {
+              insightStrings.push("I follow a vegetarian lifestyle");
+            }
+            if (insights.lifestyle_patterns?.active_lifestyle) {
+              insightStrings.push("I'm very active and exercise regularly");
+            } else if (insights.lifestyle_patterns?.moderate_activity) {
+              insightStrings.push("I maintain a moderately active lifestyle");
+            }
+            
+            setLearnedInsights(insightStrings);
+          }
+        } catch (error) {
+          console.error('Failed to load user data:', error);
+        }
+      }
+    };
+
+    loadUserData();
+  }, [user?.id, authToken]);
 
   const handleCreateProfile = () => {
     setIsReturningUser(false);
@@ -103,11 +162,13 @@ function AppContent() {
   const handleEmailSignupComplete = () => {
     setIsReturningUser(false);
     setIsEditingProfile(false);
+    setFromEmailSignup(true);
     setCurrentScreen('onboarding');
   };
 
   const handleOnboardingComplete = (profile: UserProfileType) => {
     setUserProfile(profile);
+    setFromEmailSignup(false); // Reset the flag
     if (isEditingProfile) {
       // If we're editing profile, go directly back to profile screen
       setIsEditingProfile(false);
@@ -128,6 +189,11 @@ function AppContent() {
 
   const handleUpdatePreferences = (preferences: any) => {
     setUserPreferences(prev => ({ ...prev, ...preferences }));
+    
+    // Extract learned insights if they exist in the preferences
+    if (preferences.learnedInsights) {
+      setLearnedInsights(preferences.learnedInsights);
+    }
   };
 
   const handleEditProfile = () => {
@@ -266,6 +332,9 @@ function AppContent() {
         isReturningUser={isReturningUser}
         isEditingProfile={isEditingProfile}
         currentProfile={userProfile}
+        skipAppleId={fromEmailSignup}
+        userId={user?.id}
+        authToken={authToken}
       />
     );
   }
@@ -308,6 +377,7 @@ function AppContent() {
             profile={userProfile}
             preferences={userPreferences}
             onEditProfile={handleEditProfile}
+            learnedInsights={learnedInsights}
           />
         );
       default:

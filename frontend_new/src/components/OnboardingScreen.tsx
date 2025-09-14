@@ -39,6 +39,9 @@ interface OnboardingScreenProps {
   isReturningUser?: boolean;
   isEditingProfile?: boolean;
   currentProfile?: any;
+  skipAppleId?: boolean; // New prop to skip Apple ID step
+  userId?: string; // User ID for storing personalization data
+  authToken?: string; // Auth token for API calls
 }
 
 type OnboardingStep = 
@@ -48,7 +51,7 @@ type OnboardingStep =
   | 'personalization'
   | 'completion';
 
-export function OnboardingScreen({ onComplete, isReturningUser = false, isEditingProfile = false, currentProfile }: OnboardingScreenProps) {
+export function OnboardingScreen({ onComplete, isReturningUser = false, isEditingProfile = false, currentProfile, skipAppleId = false, userId, authToken }: OnboardingScreenProps) {
   const [step, setStep] = useState<OnboardingStep>('apple-id');
   const [profile, setProfile] = useState<UserProfile>(
     isEditingProfile && currentProfile ? {
@@ -75,11 +78,14 @@ export function OnboardingScreen({ onComplete, isReturningUser = false, isEditin
   const [lastUsedMode, setLastUsedMode] = useState<'chat' | 'voice'>('voice');
 
   // Skip directly to personalization if returning user or editing profile
+  // Skip Apple ID step if coming from email signup
   useEffect(() => {
     if ((isReturningUser || isEditingProfile) && step === 'apple-id') {
       setStep('personalization');
+    } else if (skipAppleId && step === 'apple-id') {
+      setStep('health-connect');
     }
-  }, [isReturningUser, isEditingProfile, step]);
+  }, [isReturningUser, isEditingProfile, skipAppleId, step]);
 
   // Simulate Apple ID connection
   const handleAppleIdConnect = async () => {
@@ -424,12 +430,15 @@ export function OnboardingScreen({ onComplete, isReturningUser = false, isEditin
             </div>
 
             {/* Chat Modal */}
-            <PersonalizationChatModal
-              isOpen={chatModalOpen}
-              onClose={() => setChatModalOpen(false)}
-              onUpdateProfile={handleUpdateProfile}
-              onComplete={handlePersonalizationComplete}
-            />
+        <PersonalizationChatModal
+          isOpen={chatModalOpen}
+          onClose={() => setChatModalOpen(false)}
+          onUpdateProfile={handleUpdateProfile}
+          onComplete={handlePersonalizationComplete}
+          healthDataAvailable={healthDataSynced}
+          userId={userId}
+          authToken={authToken}
+        />
 
             {/* Voice Modal */}
             <PersonalizationVoiceModal

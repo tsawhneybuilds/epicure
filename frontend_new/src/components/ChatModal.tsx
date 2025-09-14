@@ -38,6 +38,7 @@ export function ChatModal({ isOpen, onClose, onUpdatePreferences, chatHistory, o
         ]
   );
   const [input, setInput] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Update messages when chatHistory prop changes
   useEffect(() => {
@@ -86,11 +87,14 @@ export function ChatModal({ isOpen, onClose, onUpdatePreferences, chatHistory, o
   };
 
   const handleSend = () => {
-    if (!input.trim()) return;
+    if (!input.trim() || isProcessing) return;
+
+    setIsProcessing(true);
+    const userInput = input.trim();
 
     const userMessage: Message = {
       id: Date.now().toString(),
-      content: input,
+      content: userInput,
       sender: 'user',
       timestamp: new Date()
     };
@@ -100,7 +104,7 @@ export function ChatModal({ isOpen, onClose, onUpdatePreferences, chatHistory, o
 
     // Simulate AI response based on user input
     setTimeout(() => {
-      const aiResponse = generateAIResponse(input);
+      const aiResponse = generateAIResponse(userInput);
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         content: aiResponse.content,
@@ -120,6 +124,8 @@ export function ChatModal({ isOpen, onClose, onUpdatePreferences, chatHistory, o
       if (aiResponse.preferences) {
         onUpdatePreferences(aiResponse.preferences);
       }
+      
+      setIsProcessing(false);
     }, 1000);
 
     setInput('');
@@ -338,7 +344,7 @@ export function ChatModal({ isOpen, onClose, onUpdatePreferences, chatHistory, o
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Tell me what you're looking for..."
-                onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                onKeyPress={(e) => e.key === 'Enter' && !isProcessing && handleSend()}
                 className="pr-10"
               />
               {isVoiceSupported && (
@@ -352,7 +358,7 @@ export function ChatModal({ isOpen, onClose, onUpdatePreferences, chatHistory, o
                 </Button>
               )}
             </div>
-            <Button onClick={handleSend} size="icon" className="flex-shrink-0">
+            <Button onClick={handleSend} size="icon" className="flex-shrink-0" disabled={isProcessing}>
               <Send className="w-4 h-4" />
             </Button>
           </div>

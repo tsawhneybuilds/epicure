@@ -1,0 +1,50 @@
+{
+  "success": true,
+  "passed": 6,
+  "total": 6,
+  "success_rate": 100.0,
+  "results": [
+    {
+      "test": "Backend Health Check",
+      "success": true,
+      "details": "Backend is running",
+      "timestamp": 1757878889.535737
+    },
+    {
+      "test": "Initial Conversational Search",
+      "success": true,
+      "details": "Got 10 menu items, AI response: Great choice! I've curated healthy menu items with...",
+      "timestamp": 1757878889.5384178
+    },
+    {
+      "test": "Conversational Refinement",
+      "success": true,
+      "details": "Got 10 refined menu items, AI response: Perfect! I found high-protein options that align w...",
+      "timestamp": 1757878889.54067
+    },
+    {
+      "test": "Multiple Conversational Turns",
+      "success": true,
+      "details": "Got 5 vegetarian menu items, AI response: Excellent! I'm showing you delicious vegetarian op...",
+      "timestamp": 1757878889.545206
+    },
+    {
+      "test": "Chat History Persistence",
+      "success": true,
+      "details": "Chat history properly maintained with 6 messages",
+      "timestamp": 1757878889.5453
+    },
+    {
+      "test": "API Endpoint Consistency",
+      "success": true,
+      "details": "Both conversational and AI recommendation endpoints are accessible",
+      "timestamp": 1757878889.551111
+    },
+    {
+      "test": "Menu Item Data Quality",
+      "success": true,
+      "details": "Validated 3 menu items with good data quality",
+      "timestamp": 1757878889.553644
+    }
+  ]
+}

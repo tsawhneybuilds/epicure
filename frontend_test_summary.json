@@ -1,0 +1,19 @@
+{
+  "timestamp": 1757878637.6393611,
+  "total_tests": 2,
+  "passed": 2,
+  "results": [
+    {
+      "script": "test_frontend_conversational_search.py",
+      "description": "Frontend Integration Tests",
+      "passed": true,
+      "output": ""
+    },
+    {
+      "script": "test_frontend_user_journey.py",
+      "description": "Frontend User Journey Tests",
+      "passed": true,
+      "output": ""
+    }
+  ]
+}

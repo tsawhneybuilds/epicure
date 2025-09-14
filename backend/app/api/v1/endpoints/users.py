@@ -3,13 +3,15 @@ User management API endpoints
 """
 
 from typing import Optional
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, Depends, Header
 from app.schemas.user import (
     UserCreateRequest,
     UserProfileUpdateRequest, 
     UserProfileResponse,
     SwipeRequest,
-    PreferencesUpdateRequest
+    PreferencesUpdateRequest,
+    PersonalizationUpdateRequest
 )
 from app.core.supabase import get_supabase_client
 from app.models.user import User, UserProfile, FrontendUserProfile
@@ -243,6 +245,62 @@ async def update_preferences(
     except Exception as e:
         logger.error(f"Preferences update failed: {e}")
         raise HTTPException(status_code=500, detail=f"Preferences update failed: {str(e)}")
+
+@router.post("/{user_id}/personalization")
+async def update_personalization_data(
+    user_id: str,
+    request: PersonalizationUpdateRequest,
+    current_user_id: str = Depends(get_user_id_from_auth)
+):
+    """Update user personalization data from chat/conversation"""
+    try:
+        # Verify user can update this profile
+        if user_id != current_user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        supabase = get_supabase_client()
+        
+        # Get current profile extensions
+        profile_result = supabase.table('user_profiles').select('profile_extensions').eq('user_id', user_id).execute()
+        
+        if not profile_result.data:
+            raise HTTPException(status_code=404, detail="Profile not found")
+        
+        current_extensions = profile_result.data[0].get('profile_extensions', {})
+        
+        # Prepare personalization data to store
+        personalization_data = {
+            "learned_insights": request.learned_insights.dict() if request.learned_insights else None,
+            "conversation_points": request.conversation_points,
+            "interaction_patterns": request.interaction_patterns,
+            "fallback_questions_asked": request.fallback_questions_asked,
+            "last_personalization_update": datetime.now().isoformat()
+        }
+        
+        # Merge personalization data with existing extensions
+        updated_extensions = {
+            **current_extensions,
+            "personalization_data": personalization_data
+        }
+        
+        # Update profile extensions
+        result = supabase.table('user_profiles').update({
+            'profile_extensions': updated_extensions,
+            'updated_at': datetime.now().isoformat()
+        }).eq('user_id', user_id).execute()
+        
+        if not result.data:
+            raise HTTPException(status_code=404, detail="Profile not found")
+        
+        return {
+            "message": "Personalization data updated successfully",
+            "personalization_data": personalization_data
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Personalization update failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Personalization update failed: {str(e)}")
 
 @router.post("/{user_id}/interactions/swipe")
 async def record_swipe(

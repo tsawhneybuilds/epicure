@@ -12,9 +12,10 @@ interface UserProfileProps {
   profile: any;
   preferences: any;
   onEditProfile: () => void;
+  learnedInsights?: any; // New prop for learned insights
 }
 
-export function UserProfile({ profile, preferences, onEditProfile }: UserProfileProps) {
+export function UserProfile({ profile, preferences, onEditProfile, learnedInsights }: UserProfileProps) {
   const [notificationSettings, setNotificationSettings] = useState({
     recommendations: true,
     mealReminders: false,
@@ -51,10 +52,16 @@ export function UserProfile({ profile, preferences, onEditProfile }: UserProfile
   const bmi = calculateBMI();
   const bmiInfo = bmi ? getBMICategory(parseFloat(bmi)) : null;
 
-  // Mock personal insights based on profile data
+  // Get personal insights from learned data or fallback to profile data
   const getPersonalInsights = () => {
     const insights = [];
     
+    // Use learned insights if available
+    if (learnedInsights && Array.isArray(learnedInsights)) {
+      return learnedInsights;
+    }
+    
+    // Fallback to profile-based insights
     if (profile.goals?.includes('Muscle gain')) {
       insights.push("I'm focused on building muscle and strength");
     }

@@ -4,7 +4,7 @@ User API schemas for requests and responses
 
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, EmailStr
-from app.models.user import FrontendUserProfile, ExtractedPreferences
+from app.models.user import FrontendUserProfile, ExtractedPreferences, LearnedInsights, PersonalizationData
 
 class UserCreateRequest(BaseModel):
     """Request to create new user"""
@@ -28,6 +28,8 @@ class UserProfileResponse(BaseModel):
     """Response with user profile"""
     profile: FrontendUserProfile
     preferences: Dict[str, Any]
+    learned_insights: Optional[LearnedInsights] = None
+    personalization_data: Optional[PersonalizationData] = None
 
 class ChatMessageRequest(BaseModel):
     """Request to send chat message"""
@@ -63,3 +65,21 @@ class HealthDataImportResponse(BaseModel):
     profile_updates: Dict[str, Any]
     proposed_extensions: List[Dict[str, Any]]
     requires_confirmation: bool
+
+class PersonalizationUpdateRequest(BaseModel):
+    """Request to update personalization data"""
+    learned_insights: Optional[LearnedInsights] = None
+    conversation_points: Optional[List[Dict[str, Any]]] = None
+    interaction_patterns: Optional[Dict[str, Any]] = None
+    fallback_questions_asked: Optional[List[str]] = None
+
+class FallbackQuestionsRequest(BaseModel):
+    """Request for fallback questions when health data unavailable"""
+    user_id: str
+    context: Optional[Dict[str, Any]] = None
+
+class FallbackQuestionsResponse(BaseModel):
+    """Response with fallback questions"""
+    questions: List[str]
+    estimated_completion_time: str
+    data_collection_goals: List[str]

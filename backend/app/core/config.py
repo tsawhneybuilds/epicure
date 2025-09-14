@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     GOOGLE_PLACES_API_KEY: Optional[str] = None
     
     # Development settings
-    MOCK_DATA: bool = True
+    MOCK_DATA: bool = False
     
     # CORS
     BACKEND_CORS_ORIGINS: List[str] = [

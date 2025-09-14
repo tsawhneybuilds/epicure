@@ -114,6 +114,20 @@ export function SwipeCard({ menuItem, onSwipe, onTap }: SwipeCardProps) {
     return info.slice(0, 3);
   };
 
+  const openDirections = () => {
+    const { lat, lng, address } = menuItem.restaurant;
+    
+    if (lat && lng) {
+      // Use precise coordinates for directions
+      const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+      window.open(mapsUrl, '_blank');
+    } else if (address) {
+      // Fallback to address search
+      const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+      window.open(mapsUrl, '_blank');
+    }
+  };
+
   const renderFrontCard = () => (
     <Card className="overflow-hidden shadow-lg cursor-pointer" onClick={handleCardClick}>
       <div className="relative h-64">

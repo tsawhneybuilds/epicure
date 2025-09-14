@@ -21,7 +21,7 @@ class AIQueryTranslator:
         if not self.use_mock:
             from groq import AsyncGroq
             self.client = AsyncGroq(api_key=settings.GROQ_API_KEY)
-            self.primary_model = "llama-3.1-70b-versatile"
+            self.primary_model = "llama-3.1-8b-instant"
             self.fallback_model = "llama-3.1-8b-instant"
             logger.info("AI Query Translator initialized with Groq")
         else:
@@ -130,19 +130,33 @@ class AIQueryTranslator:
             if not translation["ai_response"]:
                 translation["ai_response"] = "I'm curating healthy menu items with balanced nutrition for you."
         
-        # Cuisine types
-        cuisine_keywords = {
-            'italian': ['italian', 'pasta', 'pizza', 'risotto'],
-            'asian': ['asian', 'chinese', 'japanese', 'thai', 'sushi', 'ramen'],
-            'mexican': ['mexican', 'taco', 'burrito', 'quesadilla'],
-            'mediterranean': ['mediterranean', 'greek', 'hummus', 'falafel'],
-            'american': ['american', 'burger', 'sandwich', 'grilled']
-        }
-        
-        for cuisine, keywords in cuisine_keywords.items():
-            if any(keyword in message_lower for keyword in keywords):
-                query_parts.append(cuisine)
-                translation["personalization"]["cuisine_preference"] = cuisine
+        # Specific food items (prioritize these over general cuisine)
+        if 'pizza' in message_lower:
+            query_parts.append("pizza")
+            translation["ai_response"] = "I'm finding delicious pizza options for you."
+        elif 'burger' in message_lower:
+            query_parts.append("burger")
+            translation["ai_response"] = "I'm finding great burger options for you."
+        elif 'sushi' in message_lower:
+            query_parts.append("sushi")
+            translation["ai_response"] = "I'm finding fresh sushi options for you."
+        elif 'salad' in message_lower:
+            query_parts.append("salad")
+            translation["ai_response"] = "I'm finding healthy salad options for you."
+        else:
+            # Cuisine types (fallback)
+            cuisine_keywords = {
+                'italian': ['italian', 'pasta', 'risotto'],
+                'asian': ['asian', 'chinese', 'japanese', 'thai', 'ramen'],
+                'mexican': ['mexican', 'taco', 'burrito', 'quesadilla'],
+                'mediterranean': ['mediterranean', 'greek', 'hummus', 'falafel'],
+                'american': ['american', 'sandwich', 'grilled']
+            }
+            
+            for cuisine, keywords in cuisine_keywords.items():
+                if any(keyword in message_lower for keyword in keywords):
+                    query_parts.append(cuisine)
+                    translation["personalization"]["cuisine_preference"] = cuisine
                 if not translation["ai_response"]:
                     translation["ai_response"] = f"I'm finding delicious {cuisine} options for you."
                 break

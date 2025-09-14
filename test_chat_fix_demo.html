@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Duplicate Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .chat-container {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .message {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 8px;
+            max-width: 70%;
+        }
+        .user-message {
+            background-color: #007bff;
+            color: white;
+            margin-left: auto;
+            text-align: right;
+        }
+        .ai-message {
+            background-color: #e9ecef;
+            color: #333;
+        }
+        .input-container {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .test-results {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+        }
+        .status {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Chat Duplicate Message Fix Test</h1>
+    
+    <div class="chat-container">
+        <h2>Chat Interface Test</h2>
+        <div id="messages"></div>
+        <div class="input-container">
+            <input type="text" id="messageInput" placeholder="Type your message..." />
+            <button id="sendButton" onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <div class="test-results" id="testResults">
+        <div class="status">Test Status: Ready</div>
+        <div id="testDetails">Click "Send" to test the duplicate message fix</div>
+    </div>
+
+    <script>
+        let messages = [];
+        let isProcessing = false;
+        let messageCount = 0;
+
+        // Simulate the fixed generateAIResponse function
+        function generateAIResponse(userInput) {
+            const input = userInput.toLowerCase();
+            let goals = [];
+            
+            // Extract goals from user input
+            if (input.includes('macro') || input.includes('protein') || input.includes('carb')) {
+                goals.push('Track macros');
+            }
+            if (input.includes('lose weight') || input.includes('deficit') || input.includes('cut')) {
+                goals.push('Calorie deficit');
+            }
+            if (input.includes('muscle') || input.includes('gain') || input.includes('bulk')) {
+                goals.push('Muscle gain');
+            }
+            if (input.includes('vegetarian') || input.includes('vegan') || input.includes('plant')) {
+                goals.push('Vegetarian/Vegan');
+            }
+            if (input.includes('budget') || input.includes('cheap') || input.includes('money')) {
+                goals.push('Budget-friendly');
+            }
+            if (input.includes('quick') || input.includes('fast') || input.includes('busy')) {
+                goals.push('Quick meals');
+            }
+
+            // Check if conversation should end
+            const conversationLength = messages.length;
+            if (conversationLength >= 4 || (goals.length > 0 && conversationLength >= 2)) {
+                return {
+                    content: "Perfect! I have everything I need to personalize your Epicure experience. You're all set to start discovering amazing food options that match your goals!",
+                    profileUpdates: { goals },
+                    isComplete: true
+                };
+            }
+            
+            if (goals.length > 0) {
+                return {
+                    content: `Got it! I've noted your interest in ${goals.join(', ').toLowerCase()}. Is there anything else about your dietary preferences or lifestyle that would help me recommend better food options for you?`,
+                    profileUpdates: { goals }
+                };
+            }
+            
+            const followUpQuestions = [
+                "That's great! Are you looking to track specific nutrition goals like protein intake or calorie management?",
+                "Interesting! Do you have any dietary restrictions or preferences I should know about?",
+                "Perfect! What's your typical schedule like - do you need quick meal options or do you enjoy longer dining experiences?"
+            ];
+            
+            // FIXED LOGIC: Use a more reliable way to select questions
+            const questionIndex = Math.min(Math.floor((conversationLength - 1) / 2), followUpQuestions.length - 1);
+            return {
+                content: followUpQuestions[questionIndex]
+            };
+        }
+
+        function addMessage(content, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}-message`;
+            messageDiv.textContent = content;
+            document.getElementById('messages').appendChild(messageDiv);
+            messages.push({ content, sender, timestamp: new Date() });
+        }
+
+        function updateTestResults(status, details) {
+            const resultsDiv = document.getElementById('testResults');
+            const statusDiv = resultsDiv.querySelector('.status');
+            const detailsDiv = document.getElementById('testDetails');
+            
+            statusDiv.textContent = `Test Status: ${status}`;
+            detailsDiv.textContent = details;
+            
+            if (status === 'Success') {
+                resultsDiv.className = 'test-results';
+            } else if (status === 'Error') {
+                resultsDiv.className = 'test-results error';
+            }
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            // FIXED: Check for processing state to prevent duplicates
+            if (!message || isProcessing) {
+                return;
+            }
+
+            isProcessing = true;
+            messageCount++;
+            
+            // Disable input and button
+            input.disabled = true;
+            document.getElementById('sendButton').disabled = true;
+            
+            // Add user message
+            addMessage(message, 'user');
+            input.value = '';
+
+            // Simulate AI response with delay
+            setTimeout(() => {
+                const aiResponse = generateAIResponse(message);
+                addMessage(aiResponse.content, 'ai');
+                
+                // Re-enable input and button
+                input.disabled = false;
+                document.getElementById('sendButton').disabled = false;
+                isProcessing = false;
+                
+                // Check for duplicates
+                const aiMessages = messages.filter(m => m.sender === 'ai');
+                const uniqueMessages = [...new Set(aiMessages.map(m => m.content))];
+                
+                if (aiMessages.length === uniqueMessages.length) {
+                    updateTestResults('Success', `✅ No duplicate messages detected! Sent ${messageCount} messages, received ${aiMessages.length} unique AI responses.`);
+                } else {
+                    updateTestResults('Error', `❌ Duplicate messages detected! Found ${aiMessages.length - uniqueMessages.length} duplicates.`);
+                }
+                
+                // Auto-scroll to bottom
+                document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+            }, 1000);
+        }
+
+        // Allow Enter key to send message
+        document.getElementById('messageInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !isProcessing) {
+                sendMessage();
+            }
+        });
+
+        // Add initial AI message
+        addMessage("Hi! I'm here to learn about your food and fitness goals. What are you hoping to achieve with Epicure?", 'ai');
+    </script>
+</body>
+</html>

@@ -20,7 +20,7 @@ class AIService:
         
         if not self.use_mock:
             self.client = AsyncGroq(api_key=settings.GROQ_API_KEY)
-            self.primary_model = "llama-3.1-70b-versatile"  # Updated model
+            self.primary_model = "llama-3.1-8b-instant"  # Updated to current model
             self.fallback_model = "llama-3.1-8b-instant"
             self.speed_fallback = "mixtral-8x7b-32768"
             logger.info("AI Service initialized with Groq")
@@ -93,6 +93,29 @@ class AIService:
             dietary.append('gluten-free')
         
         mock_prefs.dietary_restrictions = dietary if dietary else None
+        
+        # Food-specific requests
+        food_items = []
+        if 'chicken' in message_lower:
+            food_items.append('chicken')
+        if 'beef' in message_lower or 'steak' in message_lower:
+            food_items.append('beef')
+        if 'fish' in message_lower or 'salmon' in message_lower:
+            food_items.append('fish')
+        if 'pizza' in message_lower:
+            food_items.append('pizza')
+        if 'pasta' in message_lower:
+            food_items.append('pasta')
+        if 'sushi' in message_lower:
+            food_items.append('sushi')
+        if 'burger' in message_lower:
+            food_items.append('burger')
+        if 'sandwich' in message_lower:
+            food_items.append('sandwich')
+        
+        # Add food_items to the preferences
+        if food_items:
+            mock_prefs.food_items = food_items
         
         # Urgency
         if any(word in message_lower for word in ['quick', 'fast', 'asap']):

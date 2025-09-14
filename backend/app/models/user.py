@@ -80,6 +80,7 @@ class ExtractedPreferences(BaseModel):
     portion_preference: Optional[str] = None  # small/medium/large/filling
     dietary_restrictions: Optional[List[Dict[str, Any]]] = None  # with confidence
     cuisine_preferences: Optional[List[str]] = None
+    food_items: Optional[List[str]] = None  # specific food items requested
     urgency: Optional[str] = None  # low/normal/high
     emotional_context: Optional[str] = None
     meal_timing_preference: Optional[str] = None
@@ -89,3 +90,31 @@ class ExtractedPreferences(BaseModel):
     nutrition_goals: Optional[List[str]] = None
     allergen_concerns: Optional[List[Dict[str, Any]]] = None
     texture_preferences: Optional[List[str]] = None
+
+class LearnedInsights(BaseModel):
+    """Insights learned about the user from interactions and conversations"""
+    lifestyle_patterns: Optional[Dict[str, Any]] = None  # e.g., {"active_lifestyle": True, "night_owl": False}
+    food_preferences: Optional[Dict[str, Any]] = None  # e.g., {"loves_spicy": True, "prefers_healthy": True}
+    dining_habits: Optional[Dict[str, Any]] = None  # e.g., {"quick_meals": True, "social_dining": False}
+    health_goals: Optional[Dict[str, Any]] = None  # e.g., {"weight_loss": True, "muscle_gain": False}
+    budget_behavior: Optional[Dict[str, Any]] = None  # e.g., {"budget_conscious": True, "splurges_weekends": True}
+    time_preferences: Optional[Dict[str, Any]] = None  # e.g., {"morning_person": True, "late_dinner": False}
+    social_context: Optional[Dict[str, Any]] = None  # e.g., {"dines_alone": True, "family_dining": False}
+    emotional_triggers: Optional[Dict[str, Any]] = None  # e.g., {"stress_eating": True, "celebration_food": True}
+    confidence_scores: Optional[Dict[str, float]] = None  # Confidence in each insight (0-1)
+    last_updated: Optional[datetime] = None
+    source: Optional[str] = None  # "apple_health", "conversation", "behavior", "manual"
+
+class PersonalizationData(BaseModel):
+    """Comprehensive personalization data for a user"""
+    user_id: UUID4
+    extracted_preferences: Optional[ExtractedPreferences] = None
+    learned_insights: Optional[LearnedInsights] = None
+    conversation_history: Optional[List[Dict[str, Any]]] = None  # Key conversation points
+    interaction_patterns: Optional[Dict[str, Any]] = None  # Swipe patterns, time patterns, etc.
+    fallback_questions_asked: Optional[List[str]] = None  # Questions asked when health data unavailable
+    health_data_available: Optional[bool] = None
+    last_personalization_update: Optional[datetime] = None
+    schema_version: Optional[int] = 2
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None

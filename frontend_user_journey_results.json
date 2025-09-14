@@ -1,0 +1,38 @@
+{
+  "success": true,
+  "passed": 7,
+  "total": 7,
+  "success_rate": 100.0,
+  "results": [
+    {
+      "test": "Initial App Load",
+      "success": true
+    },
+    {
+      "test": "First Search",
+      "success": true
+    },
+    {
+      "test": "Conversational Refinement",
+      "success": true
+    },
+    {
+      "test": "Multiple Refinements",
+      "success": true
+    },
+    {
+      "test": "Chat History Accuracy",
+      "success": true
+    },
+    {
+      "test": "Menu Item Switching",
+      "success": true
+    },
+    {
+      "test": "Error Handling",
+      "success": true
+    }
+  ],
+  "chat_history_length": 10,
+  "final_menu_items_count": 10
+}

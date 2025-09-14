@@ -3,6 +3,7 @@ Menu Item Service - Handles menu item search, filtering, and recommendations
 """
 import json
 import time
+import struct
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
@@ -21,6 +22,31 @@ class MenuItemService:
     
     def __init__(self):
         self.use_mock_data = settings.MOCK_DATA
+    
+    def _extract_coordinates_from_postgis(self, postgis_hex: str) -> Optional[Dict[str, float]]:
+        """
+        Extract lat/lng coordinates from PostGIS geometry hex string
+        PostGIS stores coordinates in WKB (Well-Known Binary) format
+        """
+        if not postgis_hex:
+            return None
+        
+        try:
+            # Remove the '0101000020E6100000' prefix (SRID and geometry type)
+            # and decode the hex string
+            hex_data = postgis_hex[18:]  # Remove the prefix
+            binary_data = bytes.fromhex(hex_data)
+            
+            # Parse the binary data to get coordinates
+            # PostGIS stores coordinates as double precision (8 bytes each)
+            if len(binary_data) >= 16:  # Need at least 16 bytes for lat/lng
+                # Unpack as little-endian doubles
+                lng, lat = struct.unpack('<dd', binary_data[:16])
+                return {"lat": lat, "lng": lng}
+        except Exception as e:
+            print(f"Failed to parse PostGIS coordinates: {e}")
+        
+        return None
         
     async def search_menu_items(self, request: MenuItemSearchRequest) -> MenuItemSearchResponse:
         """
@@ -587,8 +613,54 @@ class MenuItemService:
                 inferred_spice_level, inferred_meal_category, inferred_cooking_methods,
                 inferred_allergens, tag_confidence, nutrition_confidence,
                 restaurant_id,
-                restaurants(id, name, cuisine, price_level, rating, address, phone)
+                restaurants(id, name, cuisine, price_level, rating, address, phone, location)
             ''')
+            
+            # Apply semantic search and tagging
+            if request.query and request.query.strip():
+                original_query = request.query.strip()
+                translated_query = request.personalization.get('translated_query', '') if request.personalization else ''
+                
+                # Use semantic search with original query (for embeddings if available)
+                # For now, use intelligent keyword matching with original query
+                search_terms = original_query.lower()
+                
+                # If we have specific filters (like min_protein), prioritize those over text search
+                has_specific_filters = any([
+                    request.filters.get('min_protein'),
+                    request.filters.get('max_calories'),
+                    request.filters.get('dietary_restrictions'),
+                    request.filters.get('max_price')
+                ])
+                
+                if has_specific_filters and any(term in search_terms for term in ['high protein', 'protein', 'low calorie', 'healthy']):
+                    # For generic health terms with specific filters, don't apply text search
+                    # Let the filters do the work
+                    pass
+                elif 'pizza' in search_terms:
+                    # Pizza-specific search using name first, then meal category
+                    query = query.or_('name.ilike.%pizza%,inferred_meal_category.ilike.%pizza%')
+                elif 'burger' in search_terms:
+                    # Burger-specific search
+                    query = query.or_('name.ilike.%burger%,inferred_meal_category.ilike.%burger%')
+                elif 'sushi' in search_terms:
+                    # Sushi-specific search
+                    query = query.or_('name.ilike.%sushi%,inferred_cuisine_type.ilike.%japanese%')
+                elif 'chicken' in search_terms:
+                    # Chicken search using name and description
+                    query = query.or_('name.ilike.%chicken%,description.ilike.%chicken%')
+                elif 'salad' in search_terms:
+                    # Salad search using name and meal category
+                    query = query.or_('name.ilike.%salad%,inferred_meal_category.ilike.%salad%')
+                elif 'healthy' in search_terms:
+                    # Healthy options using health tags
+                    query = query.or_('inferred_health_tags.cs.{"healthy","low-calorie","high-protein"}')
+                elif 'vegetarian' in search_terms or 'vegan' in search_terms:
+                    # Vegetarian/vegan search using dietary tags
+                    query = query.or_('inferred_dietary_tags.cs.{"vegetarian","vegan"}')
+                else:
+                    # General semantic search using name and description with original query
+                    query = query.or_(f'name.ilike.%{search_terms}%,description.ilike.%{search_terms}%')
             
             # Apply filters
             if request.filters:
@@ -608,6 +680,11 @@ class MenuItemService:
                     for allergen in allergen_free:
                         query = query.not_.contains('inferred_allergens', [allergen])
             
+            # Prioritize items with nutrition data (when not using mock data)
+            if not self.use_mock_data:
+                # Filter to items that have meaningful nutrition data (not null and not zero)
+                query = query.not_.is_('estimated_calories', 'null').gt('estimated_calories', 0)
+            
             # Apply sorting
             if request.sort_by == "price":
                 query = query.order('price', desc=(request.sort_order == "desc"))
@@ -617,8 +694,11 @@ class MenuItemService:
                 query = query.order('estimated_protein_g', desc=(request.sort_order == "desc"))
             elif request.sort_by == "rating":
                 query = query.order('restaurants.rating', desc=(request.sort_order == "desc"))
-            else:  # relevance - use nutrition confidence
+            else:  # relevance - prioritize items with nutrition data
+                # Order by nutrition confidence (items with data will have higher confidence)
                 query = query.order('nutrition_confidence', desc=True)
+                # Then by calories for items with data
+                query = query.order('estimated_calories', desc=True)
             
             # Apply pagination
             query = query.range(request.offset, request.offset + request.limit - 1)
@@ -626,9 +706,24 @@ class MenuItemService:
             # Execute query
             response = query.execute()
             
+            # Deduplicate items by name and restaurant before conversion
+            seen_items = set()
+            unique_items_data = []
+            
+            for item_data in response.data:
+                # Create a unique key based on name and restaurant
+                restaurant_name = item_data.get('restaurants', {}).get('name', '') if item_data.get('restaurants') else ''
+                unique_key = f"{item_data.get('name', '')}|{restaurant_name}"
+                
+                if unique_key not in seen_items:
+                    seen_items.add(unique_key)
+                    unique_items_data.append(item_data)
+            
+            print(f"Deduplication: {len(response.data)} items -> {len(unique_items_data)} unique items")
+            
             # Convert to MenuItem objects
             menu_items = []
-            for item_data in response.data:
+            for item_data in unique_items_data:
                 menu_item = self._convert_supabase_to_menu_item(item_data)
                 if menu_item:
                     menu_items.append(menu_item)
@@ -651,6 +746,11 @@ class MenuItemService:
             price_range_map = {1: '$', 2: '$$', 3: '$$$', 4: '$$$$'}
             price_range = price_range_map.get(price_level, '$$')
             
+            # Extract coordinates from PostGIS location field
+            location_data = self._extract_coordinates_from_postgis(restaurant_data.get('location'))
+            lat = location_data.get('lat') if location_data else None
+            lng = location_data.get('lng') if location_data else None
+            
             # Create restaurant info
             restaurant_info = RestaurantInfo(
                 id=restaurant_data.get('id', ''),
@@ -660,7 +760,9 @@ class MenuItemService:
                 rating=float(restaurant_data.get('rating', 4.0)) if restaurant_data.get('rating') is not None else 4.0,
                 price_range=price_range,
                 address=restaurant_data.get('address'),
-                phone=restaurant_data.get('phone')
+                phone=restaurant_data.get('phone'),
+                lat=lat,
+                lng=lng
             )
             
             # Create menu item
@@ -711,7 +813,7 @@ class MenuItemService:
                 inferred_spice_level, inferred_meal_category, inferred_cooking_methods,
                 inferred_allergens, tag_confidence, nutrition_confidence,
                 restaurant_id,
-                restaurants(id, name, cuisine, price_level, rating, address, phone)
+                restaurants(id, name, cuisine, price_level, rating, address, phone, location)
             ''').eq('id', menu_item_id).execute()
             
             if response.data:

@@ -74,21 +74,34 @@ async def conversational_food_search(request: ConversationalSearchRequest):
         else:
             preferences_dict = preferences_result
         
-        # Generate AI response
-        ai_response = await _generate_contextual_response(
-            request.message, 
-            preferences_dict,
-            request.chat_history
+        # Use the AI recommendation engine instead of basic search
+        from app.services.ai_query_translator import AIQueryTranslator
+        ai_translator = AIQueryTranslator()
+        
+        # Translate the user message into structured parameters for the recommendation engine
+        translation = await ai_translator.translate_user_query(
+            user_message=request.message,
+            context=request.context,
+            chat_history=request.chat_history
         )
         
-        # Convert preferences to menu item search
-        menu_search_request = _build_menu_search_from_preferences(
-            preferences_dict,
-            request.context,
-            request.user_id
+        # Use AI response from the translation (which uses the recommendation engine)
+        ai_response = translation.get("ai_response", "I found some great options for you!")
+        
+        # Build menu search request from AI translation
+        # Use original user message for semantic search, translation for tagging/filters
+        menu_search_request = MenuItemSearchRequest(
+            query=request.message,  # Use original user message for semantic search
+            location=request.context.get("location", {"lat": 40.7580, "lng": -73.9855}),
+            filters=translation.get("filters", {}),
+            personalization={
+                **translation.get("personalization", {}),
+                "translated_query": translation["search_query"],  # Store translated query for tagging
+                "original_message": request.message  # Store original message
+            }
         )
         
-        # Search for menu items
+        # Search for menu items using the recommendation engine
         search_result = await menu_item_service.search_menu_items(menu_search_request)
         
         # Generate search reasoning
@@ -254,6 +267,12 @@ async def _generate_contextual_response(
             dietary = 'plant-based'
         return f"Excellent! I'm showing you delicious {dietary} options with rich flavors and complete nutrition."
     
+    # Check for food-specific requests
+    food_items = preferences.get('food_items', [])
+    if food_items:
+        food_list = ', '.join(food_items)
+        return f"Perfect! I found delicious {food_list} options for you. These dishes feature the ingredients you're craving."
+    
     else:
         return "I've found some amazing dishes based on your preferences! Swipe right on items you love, and I'll learn your taste preferences to show better recommendations."
 
@@ -267,6 +286,12 @@ def _build_menu_search_from_preferences(
     
     # Build query string
     query_parts = []
+    
+    # Add food-specific items first (highest priority)
+    food_items = preferences.get('food_items', [])
+    if food_items:
+        query_parts.extend(food_items)
+    
     dietary_restrictions = preferences.get('dietary_restrictions', [])
     if dietary_restrictions:
         if isinstance(dietary_restrictions, list):
@@ -317,6 +342,25 @@ def _generate_search_reasoning(
     
     reasoning_parts = []
     
+    # Check for food-specific requests
+    food_items = preferences.get('food_items', [])
+    if food_items:
+        if isinstance(food_items, list):
+            food_list = ', '.join(food_items)
+        else:
+            food_list = str(food_items)
+        reasoning_parts.append(f"Food items: {food_list}")
+    
+    # Check for cuisine preferences
+    cuisine = preferences.get('cuisine')
+    if cuisine:
+        reasoning_parts.append(f"{cuisine.title()} cuisine")
+    
+    # Check for meal type
+    meal_type = preferences.get('meal_type')
+    if meal_type:
+        reasoning_parts.append(f"{meal_type} options")
+    
     dietary_restrictions = preferences.get('dietary_restrictions', [])
     if dietary_restrictions:
         if isinstance(dietary_restrictions, list):
@@ -336,6 +380,9 @@ def _generate_search_reasoning(
     
     if preferences.get('urgency') == 'high':
         reasoning_parts.append("Quick preparation time")
+    
+    if preferences.get('budget_friendly'):
+        reasoning_parts.append("Budget-friendly options")
     
     if not reasoning_parts:
         reasoning_parts.append("Popular items in your area")

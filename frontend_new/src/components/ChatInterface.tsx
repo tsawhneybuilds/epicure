@@ -26,13 +26,17 @@ export function ChatInterface({ onUpdatePreferences }: ChatInterfaceProps) {
     }
   ]);
   const [input, setInput] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const handleSend = () => {
-    if (!input.trim()) return;
+    if (!input.trim() || isProcessing) return;
+
+    setIsProcessing(true);
+    const userInput = input.trim();
 
     const userMessage: Message = {
       id: Date.now().toString(),
-      content: input,
+      content: userInput,
       sender: 'user',
       timestamp: new Date()
     };
@@ -41,7 +45,7 @@ export function ChatInterface({ onUpdatePreferences }: ChatInterfaceProps) {
 
     // Simulate AI response based on user input
     setTimeout(() => {
-      const aiResponse = generateAIResponse(input);
+      const aiResponse = generateAIResponse(userInput);
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         content: aiResponse.content,
@@ -55,6 +59,8 @@ export function ChatInterface({ onUpdatePreferences }: ChatInterfaceProps) {
       if (aiResponse.preferences) {
         onUpdatePreferences(aiResponse.preferences);
       }
+      
+      setIsProcessing(false);
     }, 1000);
 
     setInput('');
