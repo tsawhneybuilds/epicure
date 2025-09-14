@@ -20,8 +20,8 @@ class AIService:
         
         if not self.use_mock:
             self.client = AsyncGroq(api_key=settings.GROQ_API_KEY)
-            self.primary_model = "deepseek-v3"  # When available on Groq
-            self.fallback_model = "llama3-70b-8192"
+            self.primary_model = "llama-3.1-70b-versatile"  # Updated model
+            self.fallback_model = "llama-3.1-8b-instant"
             self.speed_fallback = "mixtral-8x7b-32768"
             logger.info("AI Service initialized with Groq")
         else:
@@ -61,7 +61,7 @@ class AIService:
     
     # Mock implementations for development
     async def _mock_extract_preferences(self, message: str, context: Optional[Dict[str, Any]] = None) -> ExtractedPreferences:
-        """Mock preference extraction"""
+        """Mock preference extraction - simplified and robust"""
         
         # Simple keyword-based mock extraction
         message_lower = message.lower()
@@ -83,14 +83,14 @@ class AIService:
         else:
             mock_prefs.health_priority = 'medium'
         
-        # Dietary restrictions
+        # Dietary restrictions - simplified to avoid parsing issues
         dietary = []
         if 'vegan' in message_lower:
-            dietary.append({'restriction': 'vegan', 'confidence': 0.9})
+            dietary.append('vegan')
         if 'vegetarian' in message_lower:
-            dietary.append({'restriction': 'vegetarian', 'confidence': 0.9})
+            dietary.append('vegetarian')
         if 'gluten' in message_lower:
-            dietary.append({'restriction': 'gluten-free', 'confidence': 0.8})
+            dietary.append('gluten-free')
         
         mock_prefs.dietary_restrictions = dietary if dietary else None
         
@@ -140,17 +140,18 @@ class AIService:
     async def _real_extract_preferences(self, message: str, context: Optional[Dict[str, Any]] = None) -> ExtractedPreferences:
         """Real preference extraction using DeepSeek-V3/Llama3"""
         
+        context_str = json.dumps(context) if context else "{}"
         prompt = f"""
         Analyze this food preference message with deep reasoning:
         Message: "{message}"
-        Context: {json.dumps(context) if context else "{}"}
+        Context: {context_str}
         
         Extract comprehensive preferences and return valid JSON:
         {{
             "budget": number or null,
             "health_priority": "low" | "medium" | "high",
             "portion_preference": "small" | "medium" | "large" | "filling",
-            "dietary_restrictions": [{"restriction": "string", "confidence": 0.0-1.0}],
+            "dietary_restrictions": [{{"restriction": "string", "confidence": 0.0-1.0}}],
             "cuisine_preferences": ["string"],
             "urgency": "low" | "normal" | "high",
             "emotional_context": "comfort" | "energy" | "social" | "celebration" | "stress",
@@ -159,7 +160,7 @@ class AIService:
             "cooking_method_preferences": ["grilled", "fried", "raw", "steamed"],
             "ingredient_quality_preference": ["organic", "grass-fed", "local"],
             "nutrition_goals": ["weight-loss", "muscle-gain", "maintenance"],
-            "allergen_concerns": [{"allergen": "string", "severity": "low" | "medium" | "high"}],
+            "allergen_concerns": [{{"allergen": "string", "severity": "low" | "medium" | "high"}}],
             "texture_preferences": ["crunchy", "smooth", "chewy"]
         }}
         
@@ -170,7 +171,7 @@ class AIService:
         try:
             # Try primary model first
             response = await self.client.chat.completions.create(
-                model=self.fallback_model,  # Use Llama3-70B since DeepSeek-V3 may not be available yet
+                model=self.primary_model,  # Use updated Llama 3.1 model
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
                 max_tokens=1024
@@ -286,3 +287,87 @@ class AIService:
         except Exception as e:
             logger.error(f"AI response generation failed: {e}")
             return "I found some great options that match your preferences! Let me show you the results."
+    
+    async def process_search_refinement(self, refinement_message: str, current_filters: dict, current_results: list) -> dict:
+        """Process user refinement of search results"""
+        if self.use_mock:
+            return {
+                "explanation": "I've updated your search to focus more on your preferences.",
+                "updated_query": "refined healthy options",
+                "updated_filters": {**current_filters, "max_calories": 500},
+                "changes_made": ["Reduced calorie limit", "Added healthy focus"]
+            }
+        else:
+            # TODO: Implement real refinement processing with Groq
+            return await self._process_refinement_with_groq(refinement_message, current_filters, current_results)
+    
+    async def explain_recommendation(self, menu_item: dict, user_preferences: dict, search_context: dict) -> dict:
+        """Explain why a menu item was recommended"""
+        if self.use_mock:
+            item_name = menu_item.get('name', 'this item')
+            protein = menu_item.get('protein', 0)
+            dietary = menu_item.get('dietary', [])
+            
+            explanation = f"I recommended {item_name} because it "
+            factors = []
+            
+            if protein >= 25:
+                factors.append(f"has {protein}g protein (great for your fitness goals)")
+            dietary_strings = [d.lower() if isinstance(d, str) else str(d).lower() for d in dietary]
+            if 'vegetarian' in dietary_strings and user_preferences.get('dietary') == 'vegetarian':
+                factors.append("matches your vegetarian preferences")
+            if menu_item.get('calories', 999) <= 500:
+                factors.append("is calorie-conscious")
+            
+            if not factors:
+                factors.append("is popular and highly rated in your area")
+            
+            explanation += ", ".join(factors) + "."
+            
+            return {
+                "explanation": explanation,
+                "key_factors": factors,
+                "nutrition_highlights": [f"{protein}g protein", f"{menu_item.get('calories')} calories"],
+                "score": 0.85
+            }
+        else:
+            # TODO: Implement real explanation with Groq
+            return await self._explain_with_groq(menu_item, user_preferences, search_context)
+    
+    async def compare_menu_items(self, menu_items: list, criteria: list) -> dict:
+        """Compare multiple menu items"""
+        if self.use_mock:
+            if len(menu_items) >= 2:
+                item1, item2 = menu_items[0], menu_items[1]
+                
+                analysis = f"Comparing {item1['name']} vs {item2['name']}:\n\n"
+                
+                if 'nutrition' in criteria:
+                    analysis += f"**Nutrition**: {item1['name']} has {item1.get('protein', 0)}g protein and {item1.get('calories', 0)} calories, "
+                    analysis += f"while {item2['name']} has {item2.get('protein', 0)}g protein and {item2.get('calories', 0)} calories.\n"
+                
+                if 'price' in criteria:
+                    analysis += f"**Price**: {item1['name']} costs ${item1.get('price', 0)}, {item2['name']} costs ${item2.get('price', 0)}.\n"
+                
+                # Simple recommendation logic
+                recommended = item1['name'] if item1.get('protein', 0) > item2.get('protein', 0) else item2['name']
+                
+                return {
+                    "analysis": analysis,
+                    "recommended_choice": recommended,
+                    "pros_cons": {
+                        item1['name']: {"pros": ["Higher protein"], "cons": ["Higher calories"]},
+                        item2['name']: {"pros": ["Lower calories"], "cons": ["Lower protein"]}
+                    },
+                    "scores": {
+                        "nutrition": {item1['name']: 0.8, item2['name']: 0.7},
+                        "price": {item1['name']: 0.6, item2['name']: 0.9}
+                    }
+                }
+        else:
+            # TODO: Implement real comparison with Groq
+            return await self._compare_with_groq(menu_items, criteria)
+
+
+# Global service instance
+ai_service = AIService()

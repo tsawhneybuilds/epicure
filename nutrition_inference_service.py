@@ -83,6 +83,14 @@ Consider these factors in your analysis:
 5. Price point as an indicator of portion size and quality ingredients
 6. Hidden calories from sauces, oils, and preparation methods
 
+IMPORTANT: Provide realistic, specific macro targets - avoid round numbers. Use realistic portions:
+- Protein: 15-60g (aim for specific values like 23g, 31g, 47g)
+- Carbs: 10-80g (specific values like 28g, 45g, 67g)
+- Fat: 8-50g (specific values like 12g, 24g, 38g)
+- Calories: Calculate as (protein_g * 4) + (carbs_g * 4) + (fat_g * 9)
+- Fiber: 2-15g based on vegetables/grains
+- Sodium: 300-1500mg based on preparation
+
 Return this exact JSON structure:
 {
     "calories": 450,
@@ -100,6 +108,8 @@ Return this exact JSON structure:
     "estimation_method": "ingredient-analysis",
     "portion_size_assumption": "standard restaurant serving"
 }
+
+Calculate protein_ratio = (protein_g * 4) / calories, carb_ratio = (carbs_g * 4) / calories, fat_ratio = (fat_g * 9) / calories
 
 Estimation methods:
 - "ingredient-analysis": Based on detailed ingredient breakdown
@@ -161,23 +171,8 @@ Account for cooking oils, butter, cream, and other calorie-dense additions commo
                 print(f"⚠️ JSON parsing failed for nutrition: {item_name}")
                 print(f"   Response: {response_text[:100]}...")
                 print(f"   Error: {e}")
-                # Return default low-confidence estimate
-                nutrition_data = {
-                    "calories": 400,
-                    "protein_g": 15.0,
-                    "carbs_g": 30.0,
-                    "fat_g": 20.0,
-                    "fiber_g": 3.0,
-                    "sugar_g": 5.0,
-                    "sodium_mg": 500,
-                    "calories_per_100g": 150,
-                    "protein_ratio": 0.15,
-                    "carb_ratio": 0.30,
-                    "fat_ratio": 0.45,
-                    "confidence": 0.2,
-                    "estimation_method": "fallback-estimate",
-                    "portion_size_assumption": "standard-main"
-                }
+                # Use intelligent fallback based on item type
+                nutrition_data = self._fallback_nutrition_estimation(item_name, description, price)
             
             return NutritionInfo(
                 calories=nutrition_data.get('calories'),
@@ -266,6 +261,134 @@ Account for cooking oils, butter, cream, and other calorie-dense additions commo
         
         # Remove duplicates and return
         return list(set(enhanced_tags))
+    
+    def _fallback_nutrition_estimation(self, item_name: str, description: str = None, price: float = None) -> dict:
+        """Intelligent fallback nutrition estimation based on food type keywords"""
+        
+        text = f"{item_name} {description or ''}".lower()
+        
+        # Base estimates for different food categories
+        if any(word in text for word in ['salad', 'greens', 'vegetables']):
+            # Light salad
+            calories = 320
+            protein_g = 18.5
+            carbs_g = 24.0
+            fat_g = 16.5
+            fiber_g = 8.0
+            sodium_mg = 480
+            
+        elif any(word in text for word in ['pizza']):
+            # Pizza slice/portion
+            calories = 680
+            protein_g = 28.0
+            carbs_g = 65.0
+            fat_g = 32.0
+            fiber_g = 4.5
+            sodium_mg = 920
+            
+        elif any(word in text for word in ['burger', 'sandwich']):
+            # Burger/sandwich
+            calories = 750
+            protein_g = 35.0
+            carbs_g = 52.0
+            fat_g = 38.0
+            fiber_g = 3.5
+            sodium_mg = 1100
+            
+        elif any(word in text for word in ['pasta', 'spaghetti', 'linguine']):
+            # Pasta dish
+            calories = 620
+            protein_g = 24.0
+            carbs_g = 78.0
+            fat_g = 22.0
+            fiber_g = 5.0
+            sodium_mg = 750
+            
+        elif any(word in text for word in ['chicken', 'poultry']):
+            # Chicken dish
+            calories = 520
+            protein_g = 45.0
+            carbs_g = 18.0
+            fat_g = 28.0
+            fiber_g = 2.5
+            sodium_mg = 680
+            
+        elif any(word in text for word in ['fish', 'salmon', 'tuna']):
+            # Fish dish
+            calories = 480
+            protein_g = 42.0
+            carbs_g = 15.0
+            fat_g = 26.0
+            fiber_g = 2.0
+            sodium_mg = 620
+            
+        elif any(word in text for word in ['soup', 'broth']):
+            # Soup
+            calories = 280
+            protein_g = 12.0
+            carbs_g = 32.0
+            fat_g = 11.0
+            fiber_g = 4.0
+            sodium_mg = 950
+            
+        elif any(word in text for word in ['dessert', 'cake', 'ice cream', 'chocolate']):
+            # Dessert
+            calories = 420
+            protein_g = 6.5
+            carbs_g = 54.0
+            fat_g = 21.0
+            fiber_g = 2.0
+            sodium_mg = 180
+            
+        else:
+            # Generic main dish
+            calories = 550
+            protein_g = 26.0
+            carbs_g = 45.0
+            fat_g = 28.0
+            fiber_g = 4.0
+            sodium_mg = 780
+        
+        # Adjust based on price if available
+        if price:
+            if price < 12:  # Smaller/cheaper items
+                calories = int(calories * 0.8)
+                protein_g = round(protein_g * 0.8, 1)
+                carbs_g = round(carbs_g * 0.8, 1)
+                fat_g = round(fat_g * 0.8, 1)
+            elif price > 25:  # Larger/premium items
+                calories = int(calories * 1.3)
+                protein_g = round(protein_g * 1.3, 1)
+                carbs_g = round(carbs_g * 1.3, 1)
+                fat_g = round(fat_g * 1.3, 1)
+        
+        # Calculate ratios
+        total_macro_calories = (protein_g * 4) + (carbs_g * 4) + (fat_g * 9)
+        if total_macro_calories > 0:
+            protein_ratio = round((protein_g * 4) / total_macro_calories, 2)
+            carb_ratio = round((carbs_g * 4) / total_macro_calories, 2)
+            fat_ratio = round((fat_g * 9) / total_macro_calories, 2)
+        else:
+            protein_ratio = 0.20
+            carb_ratio = 0.35
+            fat_ratio = 0.45
+        
+        return {
+            "calories": calories,
+            "protein_g": protein_g,
+            "carbs_g": carbs_g,
+            "fat_g": fat_g,
+            "fiber_g": fiber_g,
+            "sugar_g": round(carbs_g * 0.3, 1),  # Estimate sugar as 30% of carbs
+            "sodium_mg": sodium_mg,
+            "calories_per_100g": int(calories * 0.4),  # Rough estimate
+            "protein_ratio": protein_ratio,
+            "carb_ratio": carb_ratio,
+            "fat_ratio": fat_ratio,
+            "confidence": 0.35,  # Lower confidence for fallback
+            "estimation_method": "keyword-fallback",
+            "portion_size_assumption": "standard-main"
+        }
 
 def test_nutrition_inference():
     """Test nutrition inference service"""

@@ -7,6 +7,7 @@ Extract dietary preferences, cuisine types, and health tags from natural languag
 import os
 import json
 import re
+import time
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 from dotenv import load_dotenv
@@ -124,23 +125,20 @@ If a category isn't mentioned, use an empty list. Use null (not "null") for empt
             
             # Clean up common JSON issues - but be careful with null
             response_text = response_text.replace("'", '"')
+            response_text = response_text.replace('null', '"null"')  # Temporarily replace nulls
             
             # Try parsing JSON with error handling
             try:
                 extracted_data = json.loads(response_text)
+                # Convert "null" strings back to None
+                if extracted_data.get('spice_preference') == 'null':
+                    extracted_data['spice_preference'] = None
             except json.JSONDecodeError as e:
                 print(f"⚠️ JSON parsing failed for: {response_text[:100]}...")
                 print(f"   Error: {e}")
-                # Return default structure
-                extracted_data = {
-                    'dietary_restrictions': [],
-                    'cuisine_preferences': [],
-                    'health_goals': [],
-                    'spice_preference': None,
-                    'meal_type': [],
-                    'cooking_method': [],
-                    'confidence': 0.3
-                }
+                # Try a fallback approach with simpler parsing
+                extracted_data = self._fallback_preference_extraction(user_query)
+                print(f"   Using fallback extraction: {extracted_data}")
             
             return ExtractedTags(
                 dietary_restrictions=extracted_data.get('dietary_restrictions', []),
@@ -233,17 +231,9 @@ Base analysis on ingredients and preparation methods. Use only values from the a
                 print(f"⚠️ JSON parsing failed for menu item: {item_name}")
                 print(f"   Response: {response_text[:100]}...")
                 print(f"   Error: {e}")
-                # Return default structure
-                extracted_data = {
-                    'dietary_tags': [],
-                    'cuisine_type': 'unknown',
-                    'health_tags': [],
-                    'spice_level': 'mild',
-                    'meal_category': 'main',
-                    'cooking_methods': [],
-                    'allergens': [],
-                    'confidence': 0.3
-                }
+                # Use fallback extraction
+                extracted_data = self._fallback_menu_item_extraction(item_name, description)
+                print(f"   Using fallback extraction: {extracted_data}")
             
             return MenuItemTags(
                 dietary_tags=extracted_data.get('dietary_tags', []),
@@ -333,6 +323,114 @@ Base analysis on ingredients and preparation methods. Use only values from the a
         final_score = normalized_score * confidence_weight
         
         return min(final_score, 1.0)  # Cap at 1.0
+    
+    def _fallback_preference_extraction(self, query: str) -> Dict:
+        """Fallback preference extraction using simple keyword matching"""
+        query_lower = query.lower()
+        
+        # Simple keyword-based extraction
+        dietary = []
+        if any(word in query_lower for word in ['vegetarian', 'veggie']):
+            dietary.append('vegetarian')
+        if any(word in query_lower for word in ['vegan']):
+            dietary.append('vegan')
+        if any(word in query_lower for word in ['gluten-free', 'gluten free']):
+            dietary.append('gluten-free')
+        if any(word in query_lower for word in ['dairy-free', 'dairy free', 'no dairy']):
+            dietary.append('dairy-free')
+        
+        cuisine = []
+        if any(word in query_lower for word in ['italian', 'pasta', 'pizza']):
+            cuisine.append('italian')
+        if any(word in query_lower for word in ['japanese', 'sushi', 'ramen']):
+            cuisine.append('japanese')
+        if any(word in query_lower for word in ['mexican', 'taco', 'burrito']):
+            cuisine.append('mexican')
+        if any(word in query_lower for word in ['chinese', 'asian']):
+            cuisine.append('chinese')
+        
+        health = []
+        if any(word in query_lower for word in ['healthy', 'low-calorie', 'light']):
+            health.append('low-calorie')
+        if any(word in query_lower for word in ['protein', 'high-protein']):
+            health.append('high-protein')
+        if any(word in query_lower for word in ['low-carb', 'keto']):
+            health.append('low-carb')
+        
+        spice = None
+        if any(word in query_lower for word in ['spicy', 'hot']):
+            spice = 'hot'
+        elif any(word in query_lower for word in ['mild', 'not spicy']):
+            spice = 'mild'
+        
+        meal = []
+        if any(word in query_lower for word in ['breakfast']):
+            meal.append('breakfast')
+        if any(word in query_lower for word in ['lunch']):
+            meal.append('lunch')
+        if any(word in query_lower for word in ['dinner']):
+            meal.append('dinner')
+        
+        return {
+            'dietary_restrictions': dietary,
+            'cuisine_preferences': cuisine,
+            'health_goals': health,
+            'spice_preference': spice,
+            'meal_type': meal,
+            'cooking_method': [],
+            'confidence': 0.4  # Lower confidence for fallback
+        }
+    
+    def _fallback_menu_item_extraction(self, name: str, description: str = None) -> Dict:
+        """Fallback menu item tag extraction using keywords"""
+        text = f"{name} {description or ''}".lower()
+        
+        dietary = []
+        if any(word in text for word in ['vegetarian', 'veggie']) and 'meat' not in text and 'chicken' not in text and 'beef' not in text:
+            dietary.append('vegetarian')
+        if 'vegan' in text:
+            dietary.append('vegan')
+        if any(word in text for word in ['gluten-free', 'gluten free']):
+            dietary.append('gluten-free')
+        
+        cuisine = 'unknown'
+        if any(word in text for word in ['pizza', 'pasta', 'italian', 'mozzarella']):
+            cuisine = 'italian'
+        elif any(word in text for word in ['sushi', 'ramen', 'japanese', 'miso']):
+            cuisine = 'japanese'
+        elif any(word in text for word in ['taco', 'burrito', 'mexican', 'salsa']):
+            cuisine = 'mexican'
+        elif any(word in text for word in ['burger', 'fries', 'american']):
+            cuisine = 'american'
+        
+        health = []
+        if any(word in text for word in ['salad', 'grilled', 'steamed']):
+            health.append('low-calorie')
+        if any(word in text for word in ['chicken', 'fish', 'protein']):
+            health.append('high-protein')
+        
+        spice = 'mild'
+        if any(word in text for word in ['spicy', 'hot', 'chili']):
+            spice = 'hot'
+        
+        allergens = []
+        if any(word in text for word in ['cheese', 'dairy', 'milk', 'cream']):
+            allergens.append('dairy')
+        if any(word in text for word in ['nuts', 'almond', 'peanut']):
+            allergens.append('nuts')
+        if any(word in text for word in ['bread', 'wheat', 'pasta']) and 'gluten-free' not in text:
+            allergens.append('gluten')
+        
+        return {
+            'dietary_tags': dietary,
+            'cuisine_type': cuisine,
+            'health_tags': health,
+            'spice_level': spice,
+            'meal_category': 'main',
+            'cooking_methods': [],
+            'allergens': allergens,
+            'confidence': 0.4
+        }
 
 def test_tag_inference():
     """Test the tag inference service with sample data"""
