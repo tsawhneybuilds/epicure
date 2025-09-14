@@ -9,6 +9,7 @@ import { Card, CardContent } from './ui/card';
 import { ScrollArea } from './ui/scroll-area';
 import { RefreshCw, MapPin, MessageCircle, Mic } from 'lucide-react';
 import { motion } from 'motion/react';
+import { EpicureAPI, DEFAULT_LOCATION } from '../utils/api';
 
 interface Restaurant {
   id: string;
@@ -165,50 +166,80 @@ export function SwipeInterface({ userPreferences, userProfile, onUpdatePreferenc
     setLocation(randomLocation);
   }, []);
 
-  const loadRestaurants = () => {
+  const loadRestaurants = async () => {
     setIsLoading(true);
-    // Simulate API call with filtering based on preferences
-    setTimeout(() => {
-      try {
-        let filteredRestaurants = [...MOCK_RESTAURANTS];
-        
-        // Filter based on user preferences
-        if (userPreferences?.budgetFriendly) {
-          filteredRestaurants = filteredRestaurants.filter(r => r.price === '$' || r.price === '$$');
-        }
-        
-        if (userPreferences?.dietary === 'vegetarian') {
-          filteredRestaurants = filteredRestaurants.filter(r => 
-            r.dietary?.some(d => d.toLowerCase().includes('vegan') || d.toLowerCase().includes('vegetarian'))
-          );
-        }
-        
-        if (userPreferences?.quickService) {
-          filteredRestaurants = filteredRestaurants.sort((a, b) => {
-            const aTime = parseInt(a.waitTime?.split(' ')[0] || '99');
-            const bTime = parseInt(b.waitTime?.split(' ')[0] || '99');
-            return aTime - bTime;
-          });
-        }
+    
+    try {
+      // Build search request with user preferences
+      const searchRequest = {
+        query: "restaurants",
+        location: DEFAULT_LOCATION,
+        filters: {
+          max_price: userPreferences?.budgetFriendly ? 2 : 4,
+          dietary_restrictions: userPreferences?.dietary === 'vegetarian' ? ['vegetarian'] : undefined,
+        },
+        limit: 20
+      };
 
-        // Shuffle for variety
-        filteredRestaurants = filteredRestaurants.sort(() => Math.random() - 0.5);
-        
-        setRestaurants(filteredRestaurants);
-        setCurrentIndex(0);
-        setIsLoading(false);
-      } catch (error) {
-        console.error('Error loading restaurants:', error);
-        setRestaurants(MOCK_RESTAURANTS);
-        setCurrentIndex(0);
-        setIsLoading(false);
+      console.log('🔍 Searching restaurants with backend API...', searchRequest);
+      
+      // Call real backend API
+      const response = await EpicureAPI.searchRestaurants(searchRequest);
+      
+      console.log('✅ Backend response:', response);
+      
+      // Set restaurants from backend
+      setRestaurants(response.restaurants || []);
+      setCurrentIndex(0);
+      setIsLoading(false);
+      
+      // Show backend connection status
+      if (response.meta?.mock_data) {
+        console.log('📝 Using mock data from backend');
+      } else {
+        console.log('🗃️ Using real Supabase data');
       }
-    }, 500);
+      
+    } catch (error) {
+      console.error('❌ Backend API failed, falling back to mock data:', error);
+      
+      // Fallback to original mock data if backend fails
+      let filteredRestaurants = [...MOCK_RESTAURANTS];
+      
+      // Apply client-side filtering as fallback
+      if (userPreferences?.budgetFriendly) {
+        filteredRestaurants = filteredRestaurants.filter(r => r.price === '$' || r.price === '$$');
+      }
+      
+      if (userPreferences?.dietary === 'vegetarian') {
+        filteredRestaurants = filteredRestaurants.filter(r => 
+          r.dietary?.some(d => d.toLowerCase().includes('vegan') || d.toLowerCase().includes('vegetarian'))
+        );
+      }
+
+      setRestaurants(filteredRestaurants);
+      setCurrentIndex(0);
+      setIsLoading(false);
+    }
   };
 
-  const handleSwipe = (direction: 'left' | 'right', restaurant: Restaurant) => {
+  const handleSwipe = async (direction: 'left' | 'right', restaurant: Restaurant) => {
     if (direction === 'right') {
       onRestaurantLiked(restaurant);
+    }
+
+    // Record swipe interaction with backend
+    try {
+      const action = direction === 'right' ? 'like' : 'dislike';
+      await EpicureAPI.recordSwipe('demo-user-123', restaurant.id, action, {
+        search_position: currentIndex,
+        user_preferences: userPreferences,
+        timestamp: new Date().toISOString()
+      });
+      console.log(`📊 Recorded ${action} for ${restaurant.name}`);
+    } catch (error) {
+      console.error('Failed to record swipe:', error);
+      // Continue with UI - don't block user interaction
     }
     
     setTimeout(() => {
