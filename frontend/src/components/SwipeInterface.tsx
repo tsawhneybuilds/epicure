@@ -149,7 +149,7 @@ export function SwipeInterface({ userPreferences, userProfile, onUpdatePreferenc
 
   useEffect(() => {
     loadRestaurants();
-  }, []);
+  }, [userPreferences, userProfile, initialPrompt]);
 
   useEffect(() => {
     // Use mock location directly to avoid geolocation timeouts
@@ -165,45 +165,30 @@ export function SwipeInterface({ userPreferences, userProfile, onUpdatePreferenc
     setLocation(randomLocation);
   }, []);
 
-  const loadRestaurants = () => {
+  const loadRestaurants = async () => {
     setIsLoading(true);
-    // Simulate API call with filtering based on preferences
-    setTimeout(() => {
-      try {
-        let filteredRestaurants = [...MOCK_RESTAURANTS];
-        
-        // Filter based on user preferences
-        if (userPreferences?.budgetFriendly) {
-          filteredRestaurants = filteredRestaurants.filter(r => r.price === '$' || r.price === '$$');
-        }
-        
-        if (userPreferences?.dietary === 'vegetarian') {
-          filteredRestaurants = filteredRestaurants.filter(r => 
-            r.dietary?.some(d => d.toLowerCase().includes('vegan') || d.toLowerCase().includes('vegetarian'))
-          );
-        }
-        
-        if (userPreferences?.quickService) {
-          filteredRestaurants = filteredRestaurants.sort((a, b) => {
-            const aTime = parseInt(a.waitTime?.split(' ')[0] || '99');
-            const bTime = parseInt(b.waitTime?.split(' ')[0] || '99');
-            return aTime - bTime;
-          });
-        }
+    try {
+      const response = await fetch('http://localhost:3001/api/recommendations/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: initialPrompt || '',
+          location: { lat: 40.72, lng: -74.0 },
+          preferences: userPreferences,
+          userProfile,
+        }),
+      });
 
-        // Shuffle for variety
-        filteredRestaurants = filteredRestaurants.sort(() => Math.random() - 0.5);
-        
-        setRestaurants(filteredRestaurants);
-        setCurrentIndex(0);
-        setIsLoading(false);
-      } catch (error) {
-        console.error('Error loading restaurants:', error);
-        setRestaurants(MOCK_RESTAURANTS);
-        setCurrentIndex(0);
-        setIsLoading(false);
-      }
-    }, 500);
+      const data = await response.json();
+      setRestaurants(data.restaurants || []);
+      setCurrentIndex(0);
+    } catch (error) {
+      console.error('Error loading restaurants:', error);
+      setRestaurants(MOCK_RESTAURANTS);
+      setCurrentIndex(0);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSwipe = (direction: 'left' | 'right', restaurant: Restaurant) => {
