@@ -154,6 +154,20 @@ export function SwipeCard({ menuItem, onSwipe, onTap }: SwipeCardProps) {
             Tap for nutrition
           </Badge>
         </div>
+        {(menuItem.restaurant.lat && menuItem.restaurant.lng) || menuItem.restaurant.address ? (
+          <div className="absolute top-16 right-4">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                openDirections();
+              }}
+              className="flex items-center gap-1 px-2 py-1 bg-blue-500/90 text-white rounded-md text-xs hover:bg-blue-600/90 transition-colors"
+            >
+              <Navigation className="w-3 h-3" />
+              Directions
+            </button>
+          </div>
+        ) : null}
         <div className="absolute bottom-4 left-4 right-4">
           <div className="flex gap-2 flex-wrap">
             {getHighlightInfo().map((highlight, index) => (

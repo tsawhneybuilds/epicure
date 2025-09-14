@@ -121,7 +121,7 @@ class ComprehensiveFixTester:
         logger.info("🔍 Test 3: Checking location data...")
         try:
             request = {
-                "message": "Show me Italian food",
+                "message": "I want pizza",
                 "context": {
                     "location": {"lat": 40.7580, "lng": -73.9855},
                     "meal_context": "dinner"

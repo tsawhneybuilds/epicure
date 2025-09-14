@@ -13,24 +13,6 @@ interface LandingScreenProps {
 export function LandingScreen({ onCreateProfile, onEmailSignup, onLogin }: LandingScreenProps) {
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Status Bar Placeholder */}
-      <div className="flex justify-between items-center p-4 text-sm font-medium">
-        <span>5:18</span>
-        <div className="flex items-center gap-1">
-          <div className="flex gap-1">
-            <div className="w-1 h-3 bg-foreground rounded-sm"></div>
-            <div className="w-1 h-3 bg-foreground rounded-sm"></div>
-            <div className="w-1 h-3 bg-foreground rounded-sm"></div>
-            <div className="w-1 h-3 bg-muted rounded-sm"></div>
-          </div>
-          <svg className="w-6 h-4 ml-2" viewBox="0 0 24 16" fill="none">
-            <path d="M1 5C1 3.34315 2.34315 2 4 2H20C21.6569 2 23 3.34315 23 5V11C23 12.6569 21.6569 14 20 14H4C2.34315 14 1 12.6569 1 11V5Z" stroke="currentColor" strokeWidth="1"/>
-            <path d="M23 6L23 10" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
-          </svg>
-          <div className="w-6 h-3 bg-foreground rounded-sm ml-1"></div>
-        </div>
-      </div>
-
       {/* Main Content */}
       <div className="flex-1 flex flex-col justify-center items-center px-8 pb-16">
         <motion.div
