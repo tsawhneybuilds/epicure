@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-from functools import lru_cache
 from urllib.parse import urlparse
 
 import httpx
@@ -10,9 +9,14 @@ from robotexclusionrulesparser import RobotExclusionRulesParser
 
 from .config import connect_timeout, read_timeout
 
+# Simple cache for robots.txt parsers
+_robots_cache = {}
 
-@lru_cache(maxsize=128)
+
 async def fetch_robots(host: str) -> RobotExclusionRulesParser:
+    if host in _robots_cache:
+        return _robots_cache[host]
+    
     url = f"https://{host}/robots.txt"
     parser = RobotExclusionRulesParser()
     try:
@@ -22,6 +26,8 @@ async def fetch_robots(host: str) -> RobotExclusionRulesParser:
                 parser.parse(r.text)
     except Exception:
         pass
+    
+    _robots_cache[host] = parser
     return parser
 
 

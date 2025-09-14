@@ -28,8 +28,11 @@ def parse(html: str) -> Tuple[List[MenuItem], float, str]:
         except Exception:
             continue
         for obj in _iter_items(data):
+            name = obj.get("name")
+            if not name:
+                continue
             item = MenuItem(
-                name=obj.get("name", "").strip(),
+                name=name.strip(),
                 description=obj.get("description"),
                 price=None,
                 currency="USD",

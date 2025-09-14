@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Iterable, Optional
 
 from .models import Menu, MenuItem, Restaurant
-from .config import SNAPSHOT_HTML, SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_SCHEMA
+from .config import snapshot_html as SNAPSHOT_HTML, SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_SCHEMA
 
 try:
     from supabase import create_client, Client  # type: ignore

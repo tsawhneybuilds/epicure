@@ -10,10 +10,10 @@ pandas==2.2.2
 tqdm==4.66.4
 rapidfuzz==3.9.3
 user-agents==2.2.0
-robotexclusionrulesparser==2.3.0
+robotexclusionrulesparser==1.7.1
 orjson==3.10.7
 # optional:
 supabase==2.5.3
 psycopg2-binary==2.9.9
 # optional, guarded by flag:
-playwright==1.47.2
+playwright==1.47.0

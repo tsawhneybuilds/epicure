@@ -54,17 +54,39 @@ async def enrich(r: Restaurant) -> None:
         r.source['yelp_id'] = best.get('id')
 
 
+def load_existing_venues() -> set:
+    """Load existing venue IDs to avoid duplicates."""
+    existing_ids = set()
+    if OUT.exists():
+        for line in OUT.read_text().splitlines():
+            if line.strip():
+                try:
+                    data = json.loads(line)
+                    existing_ids.add(data.get('id'))
+                except json.JSONDecodeError:
+                    continue
+    return existing_ids
+
 async def main() -> None:
     raw = json.loads(RAW.read_text())
     restaurants = parse_osm(raw)
-    # dedupe by name+distance
+    
+    # Load existing venues to avoid duplicates
+    existing_ids = load_existing_venues()
+    print(f"Found {len(existing_ids)} existing venues")
+    
+    # dedupe by name+distance and exclude existing venues
     unique: List[Restaurant] = []
     for r in restaurants:
-        if not any(restaurant_match(r, u) for u in unique):
+        if r.id not in existing_ids and not any(restaurant_match(r, u) for u in unique):
             unique.append(r)
-    for r in unique:
-        await enrich(r)
-    with OUT.open('w') as f:
+    
+    print(f"Found {len(unique)} new unique restaurants")
+    
+    # Skip Yelp enrichment for now (API key required)
+    # for r in unique:
+    #     await enrich(r)
+    with OUT.open('a') as f:  # Append mode instead of write mode
         for r in unique:
             row = {
                 'id': r.id,
@@ -80,7 +102,7 @@ async def main() -> None:
                 },
             }
             f.write(json.dumps(row) + '\n')
-    print(f"wrote {OUT}")
+    print(f"Added {len(unique)} new venues to {OUT}")
 
 if __name__ == '__main__':
     asyncio.run(main())
